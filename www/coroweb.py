@@ -75,7 +75,7 @@ def has_request_arg(fn):
     sig = inspect.signature(fn)
     params = sig.parameters
     found = False
-    for name, param in params.item():
+    for name, param in params.items():
         if name == 'request':
             found = True
             continue
