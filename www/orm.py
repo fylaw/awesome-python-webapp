@@ -59,9 +59,7 @@ async def execute(sql, args):
 
 
 def create_args_string(num):
-    L = []
-    for n in range(num):
-        L.append('?')
+    L = ['?'] * num
     return ', '.join(L)        
 
 
