@@ -12,8 +12,10 @@ from aiohttp import web
 
 from coroweb import get, post
 from models import User, Comment, Blog, next_id
-from apis import APIError, APIValueError
+from apis import APIError, APIValueError, APIPermissionError
 from config import configs
+
+import markdown2
 
 
 COOKIE_NAME = 'awesession'
@@ -121,6 +123,54 @@ async def authenticate(*, email, passwd):
     r.content_type = 'application/json'
     r.body = json.dumps(user, ensure_ascii=False).encode('utf-8')
     return r
+
+
+@get('/manage/blogs/create')
+async def manage_create_blog():
+    return {
+        '__template__': 'manage_blog_edit.html',
+        'id': '',
+        'action': '/api/blog'
+    }
+
+@post('/api/blog')
+async def api_create_blog(request, *, name, summary, content):
+    check_admin(request)
+    if not name or not name.strip():
+        raise APIValueError('name', 'name cannot be empty.')
+    if not summary or not summary.strip():
+        raise APIValueError('summary', 'summary cannot be empty.')
+    if not content or not content.strip():
+        raise APIValueError('content', 'content cannot be empty.')
+    user = request.__user__
+    blog = Blog(user_id = user.id, user_name = user.name, user_image = user.image, name = name.strip(), summary = summary.strip(), content=content.strip())
+    await blog.save()
+    return blog
+
+@get('/blog/{id}')
+async def get_blog(id):
+    blog = await Blog.find(id)
+    comments = await Comment.findAll('blog_id=?' , [id], orderBy='created_at desc')
+    for c in comments:
+        c.html_content = text2html(c.conent)
+    blog.html_content = markdown2.markdown(blog.content)
+    return {
+        '__template__' : 'blog.html',
+        'blog':blog,
+        'comments':comments
+    }
+
+def text2html(content):
+    pass
+
+@get('/api/blogs/{id}')
+async def api_get_blog(*, id):
+    blog = await Blog.find(id)
+    return blog
+
+def check_admin(request):
+    if request.__user__ is None or not request.__user__.admin:
+        raise APIPermissionError() 
 
 
 # 计算加密cookie:
