@@ -12,7 +12,7 @@ from aiohttp import web
 
 from coroweb import get, post
 from models import User, Comment, Blog, next_id
-from apis import APIError, APIValueError, APIPermissionError
+from apis import APIError, APIValueError, APIPermissionError, Page
 from config import configs
 
 import markdown2
@@ -161,7 +161,37 @@ async def get_blog(id):
     }
 
 def text2html(content):
-    pass
+    return content
+
+
+@get('/api/blogs')
+async def api_blogs(*, page='1'):
+    page_index = get_page_index(page)
+    num = await Blog.findNumber('count(id)')
+    p = Page(num, page_index)
+    if num == 0:
+        return dict(page= p, blogs=())
+    blogs = await Blog.findAll(orderBy='created_at desc', limit=(p.offset, p.limit))
+    return dict(page=p, blogs=blogs)
+
+
+def get_page_index(page_str):
+    p = 1
+    try:
+        p = int(page_str)
+    except ValueError:
+        pass
+    if p < 1:
+        p = 1
+    return p
+
+
+@get('/manage/blogs')
+def manage_blogs(*, page='1'):
+    return {
+        '__template__': 'manage_blogs.html',
+        'page_index': get_page_index(page)
+    }    
 
 @get('/api/blogs/{id}')
 async def api_get_blog(*, id):
